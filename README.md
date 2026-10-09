@@ -147,4 +147,5 @@ dsh plugin --profile desktop remove dsh-turn-stats-footer   # 同上走官方通
 `client.js` 里的 `TF` 块（turn-fold 的 CSS、扑克牌几何/花色 path、`TurnBarView`、
 `SettingsDialog`、指标聚合、图标配置）是从
 [@winteries/dsh-turn-fold](https://github.com/Winter-And-You-Gone/dsh-turn-fold)
-（MIT，© dsh-turn-fold contributors）**原样移植**的，许可与出处见 [LICENSE](LICENSE)。
+（MIT，© dsh-turn-fold contributors）**原样移植**的，完整范围与原始许可见
+[NOTICE.md](NOTICE.md)。
