@@ -1,0 +1,225 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dsh-turn-stats-footer 预览</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1a1a1a; --muted:#8a8a8a; --card:#f6f6f7; }
+  body.dark { --bg:#1c1c1e; --fg:#e8e8e8; --muted:#9a9a9a; --card:#2a2a2c; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); }
+  body { font: 13px/1.5 -apple-system, "PingFang SC", system-ui, sans-serif; padding:18px; }
+  .frame { width:760px; margin:0 auto 26px; }
+  .label { font-size:11px; color:var(--muted); margin:0 0 6px; letter-spacing:.04em; }
+  .statusline { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; padding:2px 0; }
+  .composer { border:1px solid rgba(128,128,128,.35); border-radius:14px; padding:12px 14px; color:var(--muted); background:var(--card); }
+  .row-slot { min-height:22px; }
+  /* ---- 真实布局复刻：面板 / 聊天内容列 / 输入框 dock ---- */
+  .pane { position:relative; width:1180px; margin:0 auto 26px; border:1px dashed rgba(128,128,128,.5); border-radius:8px;
+          --dsh-chat-content-width:700px; --dsh-composer-card-max-width:calc(var(--dsh-chat-content-width) + 32px); --dsh-composer-dock-inset:8px; }
+  .pane .label { padding:8px 32px 0; }
+  .pane .scroll { padding:16px 32px; }                                                    /* _1kaiZa_scroll */
+  .pane .column { max-width:var(--dsh-chat-content-width); width:100%; margin:0 auto; }    /* _1kaiZa_column */
+  .pane .fakebar { max-width:var(--dsh-chat-content-width); margin:0 auto; color:var(--muted); font-size:12px; padding:2px 0; }
+  .pane .dock { width:100%; border-top:1px dashed rgba(128,128,128,.35); padding:8px 0; }  /* input.dock：整条面板宽 */
+  .pane .guide { position:absolute; top:0; bottom:0; width:0; border-left:1px dashed rgba(230,80,80,.55); pointer-events:none; }
+  .pane .mock-card { max-width:var(--dsh-composer-card-max-width); margin:6px auto 8px; border:1px solid rgba(128,128,128,.35); border-radius:14px; padding:12px 14px; color:var(--muted); background:var(--card); }
+</style>
+<div class="frame">
+  <p class="label">运行中（牌面展开 + 呼吸点）</p>
+  <div class="row-slot" id="slot-running"></div>
+  <p class="statusline">深度求索中，用时 11 秒 · 178 token · 42 tok/s</p>
+  <div class="composer">发消息或创建任务，/ 调用指令，@ 文件或对话</div>
+</div>
+
+<div class="frame">
+  <p class="label">回合结束（牌面回叠，常驻）</p>
+  <div class="row-slot" id="slot-settled"></div>
+  <p class="statusline">2 轮 123 步 · 227 tok/s | 12.1M tok · 缓存命中 99%</p>
+  <div class="composer">发消息或创建任务，/ 调用指令，@ 文件或对话</div>
+</div>
+
+<div class="frame">
+  <p class="label">无步数数据（只有总 token）</p>
+  <div class="row-slot" id="slot-sparse"></div>
+</div>
+
+<div class="pane" id="pane">
+  <p class="label">对齐：上=transcript 列里的回合栏位置，下=input.dock 里的常驻行（红虚线=内容列左右边界）</p>
+  <div class="scroll">
+    <div class="column"><div id="align-top"></div>
+      <p class="fakebar" style="margin-top:10px">上面这行与下面那行的左缩进 / 右缩进必须逐像素一致</p>
+    </div>
+  </div>
+  <div class="dock">
+    <div class="mock-card" style="margin-bottom:0">发消息或创建任务，/ 调用指令，@ 文件或对话</div>
+    <div id="align-bottom"></div>
+    <p class="fakebar" style="margin-top:6px;text-align:center">5 轮 357 步 · 237 tok/s &nbsp;|&nbsp; 85.1M tok · 缓存命中 99%</p>
+  </div>
+</div>
+
+<script>
+// ---- 让插件 bundle 以为自己在 DSH 客户端里；捕获它的 component 工厂 ----
+window.__ModuleLoader__ = { load(def) { window.__PLUGIN__ = def } }
+window.localStorage = { getItem: () => null }
+document.documentElement.lang = 'zh-CN'
+
+// ---- 极简 React 替身：只有 createElement + 无状态 hook ----
+var fakeReact = {
+  Fragment: 'fragment',
+  createElement: function (type, props) {
+    var children = Array.prototype.slice.call(arguments, 2)
+    if (typeof type === 'function') return type(Object.assign({}, props || {}, { children: children }))
+    return { type: type, props: props || {}, children: children }
+  },
+  useSyncExternalStore: function (_sub, getSnapshot) { return getSnapshot() },
+  useState: function (init) { var v = typeof init === 'function' ? init() : init; return [v, function () {}] },
+  useEffect: function (fn) { try { fn() } catch (e) { } },
+  useLayoutEffect: function (fn) { try { fn() } catch (e) { } },
+  useMemo: function (fn) { return fn() },
+  useCallback: function (fn) { return fn },
+  useRef: function (init) { return { current: init === undefined ? null : init } },
+  useId: function () { return 'pid-' + (++fakeReact._seq) },
+  _seq: 0,
+}
+</script>
+
+<script src="../../client.js"></script>
+<script>
+try {
+var exportsObj = window.__PLUGIN__.factory(function (name) {
+  if (name === 'react') return fakeReact
+  throw new Error('unexpected require: ' + name)
+})
+
+var registered = []
+exportsObj.apply({
+  inject: function (_deps, fn) {
+    fn({ slots: {
+      entries: function () { return [] },
+      inject: function (_n, f) { var d = f(); return typeof d === 'function' ? d : function () {} },
+      register: function (options, component) { registered.push({ options: options, component: component }); return function () {} },
+    } })
+  },
+  on: function () { return function () {} },
+})
+
+var row = registered.filter(function (r) { return r.options.id === 'turn-stats-footer' })[0].component
+
+function mkTurn(opts) {
+  return {
+    turn: opts.turn, status: opts.running ? 'open' : 'closed',
+    start: { time: 1000 },
+    end: opts.running ? undefined : { time: 1000 + opts.durationMs },
+    steps: opts.stepCount === undefined ? [] : Array.from({ length: opts.stepCount }, function (_, i) {
+      return { step: i + 1, data: { get: function () { return undefined } } }
+    }),
+    data: { get: function (k) { return k === 'turn-tail' ? opts.tail : undefined } },
+  }
+}
+
+function renderInto(id, opts, keepWrapper) {
+  var turnLoc = mkTurn(opts)
+  var steps = opts.stepCount === undefined ? [] : Array.from({ length: opts.stepCount }, function (_, i) {
+    return { step: i + 1, status: 'settled', usage: { outputTokens: 200 },
+      finalNode: { timing: { stepStartTime: 1000, firstTokenTime: 1300, completedTime: 5000 } } }
+  })
+  if (opts.running) steps[steps.length - 1].status = 'running'
+  var source = { subscribe: function () { return function () {} }, getSnapshot: function () { return steps } }
+  var snapshot = { timeline: { turns: new Map([[opts.turn, turnLoc]]) } }
+  var out = row({
+    useConversation: function (sel) { return sel(snapshot) },
+    useChat: function (sel) {
+      return sel({ nodes: { turnDataSource: function () { return source } }, timeline: snapshot.timeline })
+    },
+    useProjection: function () { return { turns: {} } },
+  })
+  // 元素树 → DOM
+  function toDom(node) {
+    if (node === null || node === undefined || node === false) return null
+    if (typeof node === 'string' || typeof node === 'number') return document.createTextNode(String(node))
+    if (Array.isArray(node)) {
+      var f = document.createDocumentFragment()
+      node.forEach(function (c) { var d = toDom(c); if (d) f.appendChild(d) })
+      return f
+    }
+    var NS = 'http://www.w3.org/2000/svg'
+    var el = node.type === 'svg' || node.type === 'g' || node.type === 'rect'
+      ? document.createElementNS(NS, node.type)
+      : document.createElement(node.type)
+    var p = node.props || {}
+    // 运行中是滚轮里程表：视觉副本 aria-hidden，可读文本在 ccg-sr-only 里 —— 预览只画可读那份
+    if (p['aria-hidden'] === 'true' || p['aria-hidden'] === true) return null
+    Object.keys(p).forEach(function (k) {
+      if (k === 'children' || k === 'dangerouslySetInnerHTML') return
+      if (k === 'style') { Object.assign(el.style, p[k]); return }
+      // className 必须落到真正的 class 上：setAttribute('className') 只会造出个假属性，
+      // 于是 TF_CSS 全部失效（按钮默认边框、里程表数字裸露）。
+      if (k === 'className') { el.setAttribute('class', p[k]); return }
+      el.setAttribute(k, p[k])
+    })
+    if (p.dangerouslySetInnerHTML) el.innerHTML = p.dangerouslySetInnerHTML.__html
+    var kids = Array.isArray(node.children) ? node.children : (p.children || [])
+    kids.forEach(function (c) { var d = toDom(c); if (d) el.appendChild(d) })
+    return el
+  }
+  var host = document.getElementById(id)
+  host.innerHTML = ''
+  // keepWrapper：保留插件自己那层列盒子（max-width:var(--dsh-chat-content-width) + margin auto），
+  // 用来验证它落进 input.dock 之后与 transcript 列的左右边界完全一致。
+  var kids = keepWrapper ? [out] : (out && out.children ? out.children : [])
+  kids.forEach(function (c) { var d = toDom(c); if (d) host.appendChild(d) })
+}
+
+var TAIL = { tokenUsage: { totalTokens: 501446, outputTokens: 1550, cacheReadTokens: 456000, routes: [{ model: 'deepseek-v4.1-flash' }] } }
+
+renderInto('slot-running', { turn: 3, running: true, durationMs: 36000, stepCount: 2, tail: TAIL })
+renderInto('slot-settled', { turn: 3, running: false, durationMs: 36000, stepCount: 2, tail: TAIL })
+renderInto('slot-sparse', { turn: 7, running: false, durationMs: 8000, stepCount: undefined, tail: TAIL })
+
+// 对齐验证：上=transcript 列里的那行，下=input.dock（整条面板宽）里的常驻行
+renderInto('align-top', { turn: 3, running: false, durationMs: 15000, stepCount: 90, tail: TAIL }, true)
+renderInto('align-bottom', { turn: 5, running: false, durationMs: 1378000, stepCount: 90, tail: TAIL }, true)
+;(function () {
+  // 量尺：内容列左右边界（红虚线），位置由真实布局算出，用来核对上下两行是否贴线
+  var pane = document.getElementById('pane')
+  var col = pane && pane.querySelector('.column')
+  if (!col) return
+  var pr = pane.getBoundingClientRect(), cr = col.getBoundingClientRect()
+  ;[cr.left, cr.right].forEach(function (x) {
+    var g = document.createElement('div')
+    g.className = 'guide'
+    g.style.left = (x - pr.left) + 'px'
+    pane.appendChild(g)
+  })
+  // 数字版量尺：上（列内那行）与下（input.dock 里那行）的盒子必须与内容列重合
+  var box = function (el) {
+    if (!el) return null
+    var r = el.getBoundingClientRect()
+    return { left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10, width: Math.round(r.width * 10) / 10 }
+  }
+  var top = box(document.getElementById('align-top').firstElementChild)
+  var bottom = box(document.getElementById('align-bottom').firstElementChild)
+  var column = box(col)
+  var dockRow = document.querySelector('#align-bottom .ccg-turn-row')
+  var dockRight = document.querySelector('#align-bottom .ccg-turn-bar-right')
+  var dockIcon = document.querySelector('#align-bottom .ccg-poker-icon')
+  var f = function (n) { return n === null ? 'n/a' : n.toFixed(1) }
+  var pre = document.createElement('pre')
+  pre.id = 'measure'
+  pre.style.cssText = 'font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#1f2328;background:#f6f6f7;border-radius:8px;padding:10px 12px;margin:0 auto 26px;width:1180px;box-sizing:border-box'
+  pre.textContent =
+    '内容列      left=' + f(column.left) + '  right=' + f(column.right) + '  width=' + f(column.width) + '\n' +
+    '列内那行    left=' + f(top.left) + '  right=' + f(top.right) + '  width=' + f(top.width) + '\n' +
+    'dock 里那行 left=' + f(bottom.left) + '  right=' + f(bottom.right) + '  width=' + f(bottom.width) + '\n' +
+    'Δ(列内-列)      left=' + f(top.left - column.left) + '  right=' + f(top.right - column.right) + '\n' +
+    'Δ(dock-列)      left=' + f(bottom.left - column.left) + '  right=' + f(bottom.right - column.right) + '\n' +
+    '  行内左端(牌面) left=' + (dockIcon ? f(box(dockIcon).left) : 'n/a') +
+    '      右端(轮号+齿轮) right=' + (dockRight ? f(box(dockRight).right) : 'n/a') +
+    '  Δ右端=' + (dockRight ? f(box(dockRight).right - column.right) : 'n/a')
+  document.body.appendChild(pre)
+})()
+} catch (e) {
+  var box = document.createElement('pre')
+  box.style.cssText = 'color:#c00;white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace;background:#fff2f2;padding:10px;border-radius:8px'
+  box.textContent = 'RENDER ERROR: ' + (e && e.stack || e) + '\n\nwindow errors:\n' + (window.__ERRORS__ || []).join('\n')
+  document.body.insertBefore(box, document.body.firstChild)
+}
+</script>

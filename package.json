@@ -1,0 +1,21 @@
+{
+  "name": "dsh-turn-stats-footer",
+  "version": "0.4.2",
+  "private": true,
+  "description": "Per-turn stats lines (companion to @winteries/dsh-turn-fold): a footer at the END of each completed turn, plus a live '本轮' line in the composer stats band while the turn runs. 第N轮 · 耗时 · 首字(TTFT) · token · tok/s · 缓存命中率 · 模型",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "type": "module"
+}

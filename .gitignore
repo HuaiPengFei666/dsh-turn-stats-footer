@@ -1,0 +1,17 @@
+# 本机开发残留（不要进仓库）
+client.js.bak.*
+*.bak
+*.bak.*
+
+# macOS / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 依赖 / 日志
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+*.log
